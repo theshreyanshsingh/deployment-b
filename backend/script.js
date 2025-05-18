@@ -6,6 +6,7 @@ const Redis = require("ioredis");
 const cors = require("cors");
 const morgan = require("morgan");
 require("dotenv").config();
+const serverless = require("serverless-http");
 
 const app = express();
 const PORT = 9000;
@@ -44,11 +45,16 @@ app.use(cors());
 app.use(morgan("dev"));
 
 app.post("/api/project", async (req, res) => {
-  const { repo, category, owner, accessToken, slug } = req.body;
+  const { repo, category, owner, accessToken, slug, env } = req.body;
   const projectSlug = slug ? slug : generateSlug();
 
   let gitURL = `https://x-access-token:${accessToken}@github.com/${owner}/${repo}.git`;
   //   let gitURL = `https://${accessToken}@github.com/${email}/${repo}.git`;
+
+  let CREDENTIALS = {
+    accessKeyId: process.env.AWS_ACCESS_ID,
+    secretAccessKey: process.env.AWS_SECRET_KEY,
+  };
 
   // Spin the container
   const command = new RunTaskCommand({
@@ -78,6 +84,30 @@ app.post("/api/project", async (req, res) => {
               name: "CLOUDFLARE_API_TOKEN",
               value: process.env.CLOUDFLARE_API_TOKEN,
             },
+            {
+              name: "TASK",
+              value: category,
+            },
+            {
+              name: "BUCKET",
+              value: process.env.AWS_BUCKET,
+            },
+            {
+              name: "LAMBDA_ROLE_ARN",
+              value: process.env.LAMBDA_ROLE_ARN,
+            },
+            {
+              name: "ENVVARS",
+              value: env,
+            },
+            {
+              name: "AWS_REGION",
+              value: process.env.AWS_REGION,
+            },
+            {
+              name: "CREDENTIALS",
+              value: CREDENTIALS,
+            },
           ],
         },
       ],
@@ -91,6 +121,10 @@ app.post("/api/project", async (req, res) => {
   });
 });
 
+app.post("/api/webhook", (req, res) => {
+  console.log(res, req.body, "45676ty893900439039200908");
+});
+
 async function initRedisSubscribe() {
   console.log("Subscribed to logs....");
   subscriber.psubscribe("logs:*");
@@ -101,4 +135,5 @@ async function initRedisSubscribe() {
 
 initRedisSubscribe();
 
-app.listen(PORT, () => console.log(`API Server Running..${PORT}`));
+// app.listen(PORT, () => console.log(`API Server Running..${PORT}`));
+module.exports.handler = serverless(app);
